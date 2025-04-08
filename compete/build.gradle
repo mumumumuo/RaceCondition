@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    compileOnly 'net.portswigger.burp.extender:burp-extender-api:1.7.13'
+    compileOnly 'com.intellij:forms_rt:7.0.3'
+    implementation 'org.json:json:20210307'
+}
+
+shadowJar {
+    archiveFileName = 'RaceConditionTester-JDK17-V4.5.jar'
+}
