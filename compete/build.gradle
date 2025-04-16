@@ -19,5 +19,5 @@ dependencies {
 }
 
 shadowJar {
-    archiveFileName = 'RaceConditionTester-JDK17-V4.5.jar'
+    archiveFileName = 'RaceConditionTester-JDK17-V5.0.jar'
 }

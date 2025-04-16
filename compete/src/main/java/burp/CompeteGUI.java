@@ -21,11 +21,14 @@ public class CompeteGUI {
     private JTextArea requestDisplayArea;
     private JTextArea responseDisplayArea;
     private JTextField delayField;
+    private JTextField concurrentCountField;
     private JButton sendButton;
     private JButton stopButton;
     private JButton clearButton;
     private JButton moveUpButton;
     private JButton deleteButton;
+    private JButton singleConcurrentButton;
+    private JButton clearLogButton;
     private IHttpService baseService;
     private final List<byte[]> rawRequests = new ArrayList<>();
     private IExtensionHelpers helpers;
@@ -42,22 +45,30 @@ public class CompeteGUI {
         // 控制面板
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         delayField = new JTextField("0", 8);
+        concurrentCountField = new JTextField("0", 8);
         sendButton = new JButton("开始攻击");
         stopButton = new JButton("停止");
         clearButton = new JButton("清空");
         moveUpButton = new JButton("↑");
         deleteButton = new JButton("×");
+        singleConcurrentButton = new JButton("单包并发");
+        clearLogButton = new JButton("清空日志");
         stopButton.setEnabled(false);
 
         // 按钮事件绑定
         moveUpButton.addActionListener(e -> moveSelectedUp());
         deleteButton.addActionListener(e -> deleteSelected());
+        clearLogButton.addActionListener(e -> clearResponseDisplay());
 
         controlPanel.add(new JLabel("延迟(ms):"));
         controlPanel.add(delayField);
+        controlPanel.add(new JLabel("并发次数:"));
+        controlPanel.add(concurrentCountField);
         controlPanel.add(sendButton);
+        controlPanel.add(singleConcurrentButton);
         controlPanel.add(stopButton);
         controlPanel.add(clearButton);
+        controlPanel.add(clearLogButton);
         controlPanel.add(moveUpButton);
         controlPanel.add(deleteButton);
 
@@ -65,13 +76,30 @@ public class CompeteGUI {
         String[] columnNames = {"序号", "方法", "URL"};
         tableModel = new DefaultTableModel(columnNames, 0);
         requestTable = new JTable(tableModel);
-        requestTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        // 修改为多选模式，支持Ctrl键多选
+        requestTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 
         // 选中某一行时，将对应请求内容显示在可编辑的请求框中
         requestTable.getSelectionModel().addListSelectionListener(e -> {
-            int index = requestTable.getSelectedRow();
-            if (index != -1 && index < rawRequests.size()) {
-                requestDisplayArea.setText(formatRequest(rawRequests.get(index)));
+            if (!e.getValueIsAdjusting()) {
+                int[] selectedRows = requestTable.getSelectedRows();
+                if (selectedRows.length == 1) {
+                    // 单选时显示请求内容
+                    int index = selectedRows[0];
+                    if (index != -1 && index < rawRequests.size()) {
+                        requestDisplayArea.setText(formatRequest(rawRequests.get(index)));
+                    }
+                } else if (selectedRows.length > 1) {
+                    // 多选时显示第一个选中请求的内容
+                    int firstIndex = selectedRows[0];
+                    if (firstIndex != -1 && firstIndex < rawRequests.size()) {
+                        requestDisplayArea.setText(formatRequest(rawRequests.get(firstIndex)));
+                        // 在响应日志框中显示选中数量
+                        responseDisplayArea.setText(String.format("[系统] 已选择 %d 个请求\n", selectedRows.length));
+                    }
+                } else {
+                    requestDisplayArea.setText("");
+                }
             }
         });
 
@@ -260,32 +288,49 @@ public class CompeteGUI {
             try {
                 IRequestInfo requestInfo = helpers.analyzeRequest(baseService, request);
                 String requestText = new String(request, StandardCharsets.UTF_8);
-                int bodyOffset = requestInfo.getBodyOffset();
-                String headers = requestText.substring(0, bodyOffset);
-                String body = requestText.substring(bodyOffset);
-                boolean isJson = false;
-                for (String header : requestInfo.getHeaders()) {
-                    if (header.toLowerCase().contains("content-type")
-                            && header.toLowerCase().contains("application/json")) {
-                        isJson = true;
-                        break;
-                    }
+                
+                // 获取完整的请求内容，包括起始行
+                List<String> headers = requestInfo.getHeaders();
+                StringBuilder fullRequest = new StringBuilder();
+                
+                // 添加所有请求头
+                for (String header : headers) {
+                    fullRequest.append(header).append("\r\n");
                 }
-                if (isJson) {
-                    // 判断请求体是否是 JSON
-                    try {
-                        Object json = new JSONTokener(body).nextValue();
-                        if (json instanceof JSONObject) {
-                            body = ((JSONObject) json).toString(4);
-                        } else if (json instanceof JSONArray) {
-                            body = ((JSONArray) json).toString(4);
+                
+                // 添加空行和请求体
+                fullRequest.append("\r\n");
+                if (requestInfo.getBodyOffset() < request.length) {
+                    String body = requestText.substring(requestInfo.getBodyOffset());
+                    
+                    // 检查Content-Type是否为JSON
+                    boolean isJson = false;
+                    for (String header : headers) {
+                        if (header.toLowerCase().contains("content-type")
+                                && header.toLowerCase().contains("application/json")) {
+                            isJson = true;
+                            break;
                         }
-                    } catch (Exception e) {
-                        // 不是 JSON 格式，保持原样
                     }
+                    
+                    if (isJson) {
+                        try {
+                            Object json = new JSONTokener(body).nextValue();
+                            if (json instanceof JSONObject) {
+                                body = ((JSONObject) json).toString(4);
+                            } else if (json instanceof JSONArray) {
+                                body = ((JSONArray) json).toString(4);
+                            }
+                        } catch (Exception e) {
+                            // JSON格式化失败，保持原样
+                        }
+                    }
+                    fullRequest.append(body);
                 }
-                return new String(request, 0, bodyOffset, StandardCharsets.UTF_8) + body;
+                
+                return fullRequest.toString();
             } catch (Exception e) {
+                // 如果解析失败，返回原始内容
                 return new String(request, StandardCharsets.UTF_8);
             }
         } else {
@@ -344,5 +389,48 @@ public class CompeteGUI {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    public JButton getSingleConcurrentButton() {
+        return singleConcurrentButton;
+    }
+
+    public String getConcurrentCount() {
+        return concurrentCountField.getText();
+    }
+
+    // 修改获取选中请求的方法，支持多选
+    public List<byte[]> getSelectedRequests() {
+        List<byte[]> selectedRequests = new ArrayList<>();
+        int[] selectedRows = requestTable.getSelectedRows();
+        for (int row : selectedRows) {
+            if (row >= 0 && row < rawRequests.size()) {
+                selectedRequests.add(rawRequests.get(row));
+            }
+        }
+        return selectedRequests;
+    }
+
+    // 获取选中的请求数量
+    public int getSelectedRequestCount() {
+        return requestTable.getSelectedRows().length;
+    }
+
+    // 验证并发次数是否有效
+    public boolean isValidConcurrentCount() {
+        try {
+            String count = concurrentCountField.getText();
+            if (count.trim().isEmpty() || count.equals("0")) {
+                return true; // 空值或0表示无限次
+            }
+            int value = Integer.parseInt(count);
+            return value > 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    public JButton getClearLogButton() {
+        return clearLogButton;
     }
 }
