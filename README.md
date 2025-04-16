@@ -27,14 +27,14 @@
 - burp添加扩展（此处省略......一万字长篇大论）
 
 - 插件界面
-![image-20250408092512991](https://github.com/user-attachments/assets/5fd48cd3-4892-4236-8b75-94e2dcd7f080)
+
 
 - 在**Proxy**和**Repeater**模块都可以右键发送到该插件
 
-![image-20250408092548720](https://github.com/user-attachments/assets/e5531547-cdc5-4e0e-83bf-52f64c6d386d)
+
 
 - 不同数据包之间的条件竞争测试，点击开始攻击按钮即可。**Tips：有时候给个小延时条件竞争成功的概率更高，一般在0-1之间，默认是0**
-![image-20250408092955295](https://github.com/user-attachments/assets/5340e912-92b9-4399-b74d-d5393113e817)
+
 
 - 尽情食用吧
 
