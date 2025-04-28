@@ -53,7 +53,7 @@
 
 ![image](https://github.com/user-attachments/assets/0fdad007-e3b4-4d2d-a9f1-863d06360913)
 
-- 不同数据包之间的条件竞争测试，点击开始攻击按钮即可。**Tips：有时候给个小延时条件竞争成功的概率更高，一般在0-1之间，默认是0**
+- 不同数据包之间的条件竞争测试，点击开始攻击按钮即可。**Tips：有时候给个小延时条件竞争成功的概率更高，一般在0-1000之间，默认是0**
 ![image](https://github.com/user-attachments/assets/487b9617-f315-4a15-9530-de36bd0dc4a5)
 
 - 清空按钮，一键清空所有数据
